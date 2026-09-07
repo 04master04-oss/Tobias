@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -30,12 +31,15 @@ import de.tobias.emojitagebuch.ui.editor.DayEditorSheet
 import de.tobias.emojitagebuch.ui.settings.SettingsSheet
 import de.tobias.emojitagebuch.ui.stats.YearScreen
 import java.time.LocalDate
+import java.time.YearMonth
 
 private enum class Tab(val label: String) { MONTH("Monat"), YEAR("Jahr") }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EmojiTagebuchApp(
+    requestedDate: String? = null,
+    onRequestConsumed: () -> Unit = {},
     viewModel: MoodViewModel = viewModel {
         val app = checkNotNull(this[APPLICATION_KEY])
         MoodViewModel(AppDatabase.get(app).dayEntryDao(), SettingsStore.get(app))
@@ -51,6 +55,16 @@ fun EmojiTagebuchApp(
     var tab by rememberSaveable { mutableStateOf(Tab.MONTH) }
     var editingDate by rememberSaveable { mutableStateOf<String?>(null) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
+
+    // Aus einer Benachrichtigung geöffnet: passenden Monat zeigen und Editor für den Tag öffnen.
+    LaunchedEffect(requestedDate) {
+        val iso = requestedDate ?: return@LaunchedEffect
+        val date = runCatching { LocalDate.parse(iso) }.getOrNull() ?: return@LaunchedEffect
+        viewModel.showMonth(YearMonth.from(date))
+        tab = Tab.MONTH
+        editingDate = iso
+        onRequestConsumed()
+    }
 
     Scaffold(
         topBar = {
@@ -134,6 +148,8 @@ fun EmojiTagebuchApp(
             settings = settings,
             onAppearance = viewModel::setAppearance,
             onAccent = viewModel::setAccent,
+            onEveningReminder = viewModel::setEveningReminder,
+            onMorningReminder = viewModel::setMorningReminder,
             onDismiss = { showSettings = false },
         )
     }

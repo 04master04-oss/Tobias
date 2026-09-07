@@ -24,6 +24,9 @@ interface DayEntryDao {
     @Query("SELECT emoji, COUNT(*) AS count FROM day_entries GROUP BY emoji ORDER BY count DESC, MAX(updated_at) DESC")
     fun observeEmojiUsage(): Flow<List<EmojiUsage>>
 
+    @Query("SELECT * FROM day_entries WHERE date = :date LIMIT 1")
+    suspend fun getByDate(date: String): DayEntry?
+
     @Upsert
     suspend fun upsert(entry: DayEntry)
 

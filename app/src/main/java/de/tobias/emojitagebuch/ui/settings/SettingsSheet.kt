@@ -22,7 +22,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -32,12 +35,16 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -51,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import de.tobias.emojitagebuch.settings.AppSettings
 import de.tobias.emojitagebuch.settings.Appearance
 import de.tobias.emojitagebuch.ui.theme.PresetAccents
+import java.util.Locale
 
 /**
  * Einstellungen: Hell/Dunkel und Akzentfarbe (Systemfarbe, 16 Vorgaben oder frei per Regler).
@@ -61,8 +69,11 @@ fun SettingsSheet(
     settings: AppSettings,
     onAppearance: (Appearance) -> Unit,
     onAccent: (Int?) -> Unit,
+    onEveningReminder: (enabled: Boolean, hour: Int?, minute: Int?) -> Unit,
+    onMorningReminder: (enabled: Boolean, hour: Int?, minute: Int?) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    var timePickerFor by remember { mutableStateOf<ReminderKind?>(null) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val currentAccent = settings.accentArgb?.let { Color(it) }
 
@@ -87,7 +98,35 @@ fun SettingsSheet(
                 .padding(horizontal = 20.dp)
                 .navigationBarsPadding(),
         ) {
-            Text("Aussehen", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Text("Einstellungen", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(16.dp))
+
+            Text("Erinnerungen", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(4.dp))
+            ReminderRow(
+                title = "Abends fragen, wie der Tag war",
+                enabled = settings.eveningEnabled,
+                hour = settings.eveningHour,
+                minute = settings.eveningMinute,
+                onToggle = { onEveningReminder(it, null, null) },
+                onPickTime = { timePickerFor = ReminderKind.EVENING },
+            )
+            ReminderRow(
+                title = "Morgens nachfragen, falls gestern fehlt",
+                enabled = settings.morningEnabled,
+                hour = settings.morningHour,
+                minute = settings.morningMinute,
+                onToggle = { onMorningReminder(it, null, null) },
+                onPickTime = { timePickerFor = ReminderKind.MORNING },
+            )
+            Text(
+                text = "Die Erinnerung kommt nur, wenn für den Tag noch kein Emoji gesetzt ist.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(Modifier.height(20.dp))
+            HorizontalDivider()
             Spacer(Modifier.height(16.dp))
 
             Text("Hell oder dunkel", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -184,6 +223,90 @@ fun SettingsSheet(
             Spacer(Modifier.height(16.dp))
         }
     }
+
+    when (timePickerFor) {
+        ReminderKind.EVENING -> TimePickerDialog(
+            title = "Abend-Erinnerung",
+            hour = settings.eveningHour,
+            minute = settings.eveningMinute,
+            onConfirm = { h, m ->
+                onEveningReminder(true, h, m)
+                timePickerFor = null
+            },
+            onDismiss = { timePickerFor = null },
+        )
+        ReminderKind.MORNING -> TimePickerDialog(
+            title = "Morgen-Erinnerung",
+            hour = settings.morningHour,
+            minute = settings.morningMinute,
+            onConfirm = { h, m ->
+                onMorningReminder(true, h, m)
+                timePickerFor = null
+            },
+            onDismiss = { timePickerFor = null },
+        )
+        null -> Unit
+    }
+}
+
+private enum class ReminderKind { EVENING, MORNING }
+
+@Composable
+private fun ReminderRow(
+    title: String,
+    enabled: Boolean,
+    hour: Int,
+    minute: Int,
+    onToggle: (Boolean) -> Unit,
+    onPickTime: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            TextButton(
+                onClick = onPickTime,
+                enabled = enabled,
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp, vertical = 0.dp),
+            ) {
+                Icon(Icons.Filled.Schedule, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(String.format(Locale.GERMAN, "%02d:%02d Uhr", hour, minute))
+            }
+        }
+        Switch(checked = enabled, onCheckedChange = onToggle)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TimePickerDialog(
+    title: String,
+    hour: Int,
+    minute: Int,
+    onConfirm: (hour: Int, minute: Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val state = rememberTimePickerState(initialHour = hour, initialMinute = minute, is24Hour = true)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                TimePicker(state = state)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(state.hour, state.minute) }) { Text("Übernehmen") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Abbrechen") }
+        },
+    )
 }
 
 @Composable

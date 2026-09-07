@@ -91,4 +91,24 @@ class MoodViewModel(
     fun setAccent(argb: Int?) {
         settingsStore.update { it.copy(accentArgb = argb) }
     }
+
+    fun setEveningReminder(enabled: Boolean, hour: Int? = null, minute: Int? = null) {
+        settingsStore.update {
+            it.copy(
+                eveningEnabled = enabled,
+                eveningHour = hour ?: it.eveningHour,
+                eveningMinute = minute ?: it.eveningMinute,
+            )
+        }
+    }
+
+    fun setMorningReminder(enabled: Boolean, hour: Int? = null, minute: Int? = null) {
+        settingsStore.update {
+            it.copy(
+                morningEnabled = enabled,
+                morningHour = hour ?: it.morningHour,
+                morningMinute = minute ?: it.morningMinute,
+            )
+        }
+    }
 }

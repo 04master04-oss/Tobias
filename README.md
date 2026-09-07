@@ -22,6 +22,10 @@ erhalten, weil jede APK mit demselben Schlüssel signiert ist.
 - Nach links oder rechts wischen oder die Pfeile nutzen, um den Monat zu wechseln.
 - Ein kleiner Punkt unter dem Emoji zeigt an, dass eine Notiz vorhanden ist.
 - Tab "Jahr": Jahresbilanz und alle Monate auf einen Blick, antippen öffnet den Monat.
+- Emoji lange gedrückt halten: wird Favorit und steht im Editor immer ganz oben.
+- Paletten-Symbol oben rechts: Hell/Dunkel, Farbe (Systemfarbe, 16 Vorgaben oder frei per Regler)
+  und Erinnerungen (abends "Wie war dein Tag?", morgens Nachfrage, falls gestern fehlt).
+  Erinnerungen kommen nur, wenn für den Tag noch kein Emoji gesetzt ist. Antippen öffnet den Tag.
 
 ## Technik
 
