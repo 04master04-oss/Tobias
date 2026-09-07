@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.tobias.emojitagebuch.data.DayEntry
+import de.tobias.emojitagebuch.ui.EmojiText
 import de.tobias.emojitagebuch.ui.shortName
 import de.tobias.emojitagebuch.ui.theme.moodColor
 import java.time.DayOfWeek
@@ -108,7 +109,7 @@ private fun DayCell(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(0.85f)
+            .aspectRatio(0.82f)
             .clip(shape)
             .background(background, shape)
             .border(2.dp, borderColor, shape)
@@ -129,7 +130,7 @@ private fun DayCell(
             contentAlignment = Alignment.Center,
         ) {
             if (entry != null) {
-                Text(text = entry.emoji, fontSize = 24.sp, lineHeight = 28.sp)
+                EmojiText(emoji = entry.emoji, size = 23.sp)
             } else {
                 Box(
                     modifier = Modifier

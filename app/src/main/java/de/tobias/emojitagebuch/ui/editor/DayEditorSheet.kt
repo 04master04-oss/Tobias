@@ -1,8 +1,10 @@
 package de.tobias.emojitagebuch.ui.editor
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,8 +21,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -36,32 +43,70 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.tobias.emojitagebuch.data.DayEntry
+import de.tobias.emojitagebuch.data.EmojiUsage
 import de.tobias.emojitagebuch.model.MoodCatalog
 import de.tobias.emojitagebuch.model.MoodEmoji
+import de.tobias.emojitagebuch.ui.EmojiText
 import de.tobias.emojitagebuch.ui.longTitle
 import de.tobias.emojitagebuch.ui.theme.moodColor
 import java.time.LocalDate
 
 /**
  * Bottom Sheet zum Setzen eines Emojis und einer Notiz für einen Tag.
+ * Oben stehen Favoriten (per langem Drücken markiert) und häufig verwendete Emojis,
+ * die vollständige Liste lässt sich aufklappen.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun DayEditorSheet(
     date: LocalDate,
     existing: DayEntry?,
+    favorites: List<String>,
+    usage: List<EmojiUsage>,
+    onToggleFavorite: (String) -> Unit,
     onSave: (emoji: MoodEmoji, note: String) -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var selectedEmoji by rememberSaveable(date) { mutableStateOf(existing?.emoji) }
-    val selected: MoodEmoji? = selectedEmoji?.let { MoodCatalog.find(it) }
     var note by rememberSaveable(date) { mutableStateOf(existing?.note ?: "") }
+
+    // Emoji, das nicht mehr im Katalog steht (alter Eintrag), bleibt trotzdem auswählbar.
+    val selected: MoodEmoji? = selectedEmoji?.let { e ->
+        MoodCatalog.find(e) ?: existing?.takeIf { it.emoji == e }
+            ?.let { MoodEmoji(it.emoji, MoodCatalog.scoreLabel(it.score), it.score) }
+    }
+
+    val favoriteMoods = favorites.mapNotNull { MoodCatalog.find(it) }
+    val frequentMoods = usage
+        .asSequence()
+        .filter { it.emoji !in favorites }
+        .mapNotNull { MoodCatalog.find(it.emoji) }
+        .take(8)
+        .toList()
+    val hasQuickPicks = favoriteMoods.isNotEmpty() || frequentMoods.isNotEmpty()
+    var showAll by rememberSaveable(date) { mutableStateOf(!hasQuickPicks) }
+    val haptic = LocalHapticFeedback.current
+
+    val chip: @Composable (MoodEmoji) -> Unit = { mood ->
+        EmojiChip(
+            mood = mood,
+            selected = selected?.emoji == mood.emoji,
+            isFavorite = mood.emoji in favorites,
+            onClick = { selectedEmoji = mood.emoji },
+            onLongClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onToggleFavorite(mood.emoji)
+            },
+        )
+    }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
@@ -89,7 +134,7 @@ fun DayEditorSheet(
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(text = selected?.emoji ?: "❔", fontSize = 40.sp, lineHeight = 44.sp)
+                    EmojiText(emoji = selected?.emoji ?: "❔", size = 40.sp)
                 }
                 Spacer(Modifier.width(16.dp))
                 Column {
@@ -108,35 +153,86 @@ fun DayEditorSheet(
 
             Spacer(Modifier.height(16.dp))
 
-            MoodCatalog.categories.forEach { category ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(RoundedCornerShape(3.dp))
-                            .background(moodColor(category.score)),
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = category.title,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+            // Favoriten
+            SectionTitle(
+                title = "Favoriten",
+                icon = { Icon(Icons.Filled.Star, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary) },
+            )
+            Spacer(Modifier.height(6.dp))
+            if (favoriteMoods.isEmpty()) {
+                Text(
+                    text = "Halte ein Emoji gedrückt, um es hier als Favorit abzulegen.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    favoriteMoods.forEach { chip(it) }
                 }
+            }
+            Spacer(Modifier.height(14.dp))
+
+            // Häufig verwendet
+            if (frequentMoods.isNotEmpty()) {
+                SectionTitle(title = "Häufig verwendet")
                 Spacer(Modifier.height(6.dp))
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    category.emojis.forEach { mood ->
-                        EmojiChip(
-                            mood = mood,
-                            selected = selected?.emoji == mood.emoji,
-                            onClick = { selectedEmoji = mood.emoji },
-                        )
-                    }
+                    frequentMoods.forEach { chip(it) }
                 }
                 Spacer(Modifier.height(14.dp))
+            }
+
+            // Alle Emojis, aufklappbar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { showAll = !showAll }
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                SectionTitle(title = "Alle Emojis")
+                Icon(
+                    imageVector = if (showAll) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    contentDescription = if (showAll) "Zuklappen" else "Aufklappen",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (showAll) {
+                Spacer(Modifier.height(6.dp))
+                MoodCatalog.categories.forEach { category ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(moodColor(category.score)),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = category.title,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        category.emojis.forEach { chip(it) }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
+            } else {
+                Spacer(Modifier.height(10.dp))
             }
 
             OutlinedTextField(
@@ -180,11 +276,33 @@ fun DayEditorSheet(
 }
 
 @Composable
-private fun EmojiChip(mood: MoodEmoji, selected: Boolean, onClick: () -> Unit) {
+private fun SectionTitle(title: String, icon: (@Composable () -> Unit)? = null) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (icon != null) {
+            icon()
+            Spacer(Modifier.width(6.dp))
+        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun EmojiChip(
+    mood: MoodEmoji,
+    selected: Boolean,
+    isFavorite: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+) {
     val shape = RoundedCornerShape(12.dp)
     Box(
         modifier = Modifier
-            .size(48.dp)
+            .size(50.dp)
             .clip(shape)
             .background(
                 if (selected) moodColor(mood.score).copy(alpha = 0.3f)
@@ -195,9 +313,20 @@ private fun EmojiChip(mood: MoodEmoji, selected: Boolean, onClick: () -> Unit) {
                 color = if (selected) moodColor(mood.score) else Color.Transparent,
                 shape = shape,
             )
-            .clickable(onClick = onClick),
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text = mood.emoji, fontSize = 26.sp, lineHeight = 30.sp)
+        EmojiText(emoji = mood.emoji, size = 26.sp)
+        if (isFavorite) {
+            Icon(
+                imageVector = Icons.Filled.Star,
+                contentDescription = "Favorit",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(2.dp)
+                    .size(12.dp),
+            )
+        }
     }
 }

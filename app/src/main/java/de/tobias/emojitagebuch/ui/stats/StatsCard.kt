@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.tobias.emojitagebuch.data.DayEntry
+import de.tobias.emojitagebuch.ui.EmojiText
 import de.tobias.emojitagebuch.model.MoodCatalog
 import de.tobias.emojitagebuch.model.MoodStats
 import de.tobias.emojitagebuch.ui.theme.moodColor
@@ -63,7 +64,7 @@ fun MonthStatsCard(
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = stats.averageEmoji ?: "", fontSize = 44.sp, lineHeight = 48.sp)
+                EmojiText(emoji = stats.averageEmoji ?: "", size = 44.sp)
                 Spacer(Modifier.width(16.dp))
                 Column {
                     Text(
@@ -185,7 +186,7 @@ private fun TrendBars(month: YearMonth, entries: Map<LocalDate, DayEntry>) {
 fun EmojiShareRow(emoji: String, label: String, count: Int, percent: Int) {
     val score = MoodCatalog.find(emoji)?.score ?: 3
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(text = emoji, fontSize = 22.sp, lineHeight = 26.sp)
+        EmojiText(emoji = emoji, size = 22.sp)
         Spacer(Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

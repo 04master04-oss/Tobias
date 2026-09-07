@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.tobias.emojitagebuch.data.DayEntry
+import de.tobias.emojitagebuch.ui.EmojiText
 import de.tobias.emojitagebuch.data.localDate
 import de.tobias.emojitagebuch.model.MoodStats
 import de.tobias.emojitagebuch.ui.shortTitle
@@ -90,7 +91,7 @@ fun YearScreen(
                         )
                     } else {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(yearStats.averageEmoji ?: "", fontSize = 40.sp, lineHeight = 44.sp)
+                            EmojiText(emoji = yearStats.averageEmoji ?: "", size = 40.sp)
                             Spacer(Modifier.width(16.dp))
                             Column {
                                 Text(
@@ -148,10 +149,9 @@ private fun MonthSummaryRow(month: YearMonth, stats: MoodStats, onClick: () -> U
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = stats.averageEmoji ?: "·",
-                fontSize = 30.sp,
-                lineHeight = 34.sp,
+            EmojiText(
+                emoji = stats.averageEmoji ?: "·",
+                size = 30.sp,
                 modifier = Modifier.width(44.dp),
             )
             Spacer(Modifier.width(12.dp))

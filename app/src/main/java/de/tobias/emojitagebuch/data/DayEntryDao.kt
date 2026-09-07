@@ -5,6 +5,12 @@ import androidx.room.Query
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
+/** Wie oft ein Emoji insgesamt verwendet wurde. */
+data class EmojiUsage(
+    val emoji: String,
+    val count: Int,
+)
+
 @Dao
 interface DayEntryDao {
 
@@ -14,6 +20,9 @@ interface DayEntryDao {
 
     @Query("SELECT * FROM day_entries ORDER BY date")
     fun observeAll(): Flow<List<DayEntry>>
+
+    @Query("SELECT emoji, COUNT(*) AS count FROM day_entries GROUP BY emoji ORDER BY count DESC, MAX(updated_at) DESC")
+    fun observeEmojiUsage(): Flow<List<EmojiUsage>>
 
     @Upsert
     suspend fun upsert(entry: DayEntry)

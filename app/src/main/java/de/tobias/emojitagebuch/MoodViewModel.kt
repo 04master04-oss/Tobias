@@ -4,7 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import de.tobias.emojitagebuch.data.DayEntry
 import de.tobias.emojitagebuch.data.DayEntryDao
+import de.tobias.emojitagebuch.data.EmojiUsage
 import de.tobias.emojitagebuch.data.localDate
+import de.tobias.emojitagebuch.settings.AppSettings
+import de.tobias.emojitagebuch.settings.Appearance
+import de.tobias.emojitagebuch.settings.SettingsStore
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -18,13 +22,18 @@ import java.time.Year
 import java.time.YearMonth
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class MoodViewModel(private val dao: DayEntryDao) : ViewModel() {
+class MoodViewModel(
+    private val dao: DayEntryDao,
+    private val settingsStore: SettingsStore,
+) : ViewModel() {
 
     private val _month = MutableStateFlow(YearMonth.now())
     val month: StateFlow<YearMonth> = _month
 
     private val _year = MutableStateFlow(Year.now().value)
     val year: StateFlow<Int> = _year
+
+    val settings: StateFlow<AppSettings> = settingsStore.state
 
     /** Einträge des aktuell angezeigten Monats, nach Datum abrufbar. */
     val monthEntries: StateFlow<Map<LocalDate, DayEntry>> = _month
@@ -35,6 +44,10 @@ class MoodViewModel(private val dao: DayEntryDao) : ViewModel() {
     /** Alle Einträge des aktuell angezeigten Jahres. */
     val yearEntries: StateFlow<List<DayEntry>> = _year
         .flatMapLatest { y -> dao.observeByPrefix(y.toString()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Häufigkeit aller je verwendeten Emojis, absteigend sortiert. */
+    val emojiUsage: StateFlow<List<EmojiUsage>> = dao.observeEmojiUsage()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun nextMonth() { _month.value = _month.value.plusMonths(1) }
@@ -61,5 +74,21 @@ class MoodViewModel(private val dao: DayEntryDao) : ViewModel() {
 
     fun delete(date: LocalDate) {
         viewModelScope.launch { dao.delete(date.toString()) }
+    }
+
+    fun toggleFavorite(emoji: String) {
+        settingsStore.update { s ->
+            val next = if (emoji in s.favorites) s.favorites - emoji else s.favorites + emoji
+            s.copy(favorites = next)
+        }
+    }
+
+    fun setAppearance(appearance: Appearance) {
+        settingsStore.update { it.copy(appearance = appearance) }
+    }
+
+    /** null = Systemfarbe des Handys verwenden. */
+    fun setAccent(argb: Int?) {
+        settingsStore.update { it.copy(accentArgb = argb) }
     }
 }
